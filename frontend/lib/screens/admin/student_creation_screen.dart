@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/class_model.dart';
 import '../../services/api_service.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class StudentCreationScreen extends StatefulWidget {
   const StudentCreationScreen({super.key});
@@ -38,7 +40,7 @@ class _StudentCreationScreenState extends State<StudentCreationScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load classes: $e')),
+          SnackBar(content: Text('Failed to load classes: ${e.toString().replaceAll('Exception: ', '')}')),
         );
       }
       setState(() => _isLoadingClasses = false);
@@ -71,7 +73,7 @@ class _StudentCreationScreenState extends State<StudentCreationScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
           );
         }
       } finally {
@@ -82,8 +84,19 @@ class _StudentCreationScreenState extends State<StudentCreationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Student')),
+      appBar: AppBar(
+        title: const Text('Create Student'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => auth.logout().then((_) {
+              Navigator.pushReplacementNamed(context, '/login');
+            }),
+          ),
+        ],
+      ),
       body: _isLoadingClasses
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(

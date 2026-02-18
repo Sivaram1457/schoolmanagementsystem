@@ -1,15 +1,28 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
 import 'class_management_screen.dart';
 import 'student_creation_screen.dart';
+import 'admin_stats_screen.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin Dashboard')),
+      appBar: AppBar(
+        title: const Text('Admin Dashboard'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => auth.logout().then((_) {
+              Navigator.pushReplacementNamed(context, '/login');
+            }),
+          ),
+        ],
+      ),
       body: GridView.count(
         crossAxisCount: 2,
         padding: const EdgeInsets.all(16),
@@ -46,6 +59,15 @@ class AdminDashboardScreen extends StatelessWidget {
             color: Colors.purple,
             onTap: () {}, // TODO
           ),
+          _AdminCard(
+            title: 'Attendance Analytics',
+            icon: Icons.analytics,
+            color: Colors.teal,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminStatsScreen()),
+            ),
+          ),
         ],
       ),
     );
@@ -78,7 +100,7 @@ class _AdminCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundColor: color.withOpacity(0.1),
+              backgroundColor: color.withAlpha(25), // Approx 10% opacity
               child: Icon(icon, size: 30, color: color),
             ),
             const SizedBox(height: 16),

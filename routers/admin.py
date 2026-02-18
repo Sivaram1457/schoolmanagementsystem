@@ -12,8 +12,10 @@ from database import get_db
 from models import Class, User, UserRole
 from schemas import (
     ClassCreate, ClassOut,
-    StudentCreate, TeacherCreate, ParentCreate, UserOut
+    StudentCreate, TeacherCreate, ParentCreate, UserOut,
+    SubjectCreate, SubjectOut, AcademicMappingCreate, AcademicMappingOut
 )
+from models import Subject, AcademicMapping
 
 # Protect all routes in this router with strictly "admin" role
 router = APIRouter(
@@ -190,3 +192,70 @@ def create_parent(payload: ParentCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     return new_user
+
+
+# ── Subjects Management ────────────────────────────────────────────────────────
+
+@router.post("/subjects", response_model=SubjectOut, status_code=status.HTTP_201_CREATED)
+def create_subject(payload: SubjectCreate, db: Session = Depends(get_db)):
+    """Create a new subject."""
+    existing = db.query(Subject).filter(Subject.name == payload.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Subject already exists")
+    
+    new_subject = Subject(**payload.model_dump())
+    db.add(new_subject)
+    db.commit()
+    db.refresh(new_subject)
+    return new_subject
+
+
+@router.get("/subjects", response_model=List[SubjectOut])
+def list_subjects(db: Session = Depends(get_db)):
+    """List all subjects."""
+    return db.query(Subject).all()
+
+
+# ── Academic Mapping Management ────────────────────────────────────────────────
+
+@router.post("/mappings", response_model=AcademicMappingOut, status_code=status.HTTP_201_CREATED)
+def create_mapping(payload: AcademicMappingCreate, db: Session = Depends(get_db)):
+    """Map a Teacher to a Subject and Class."""
+    # 1. Verify Teacher
+    teacher = db.query(User).filter(User.id == payload.teacher_id, User.role == UserRole.teacher).first()
+    if not teacher:
+        raise HTTPException(status_code=400, detail="Invalid Teacher ID")
+    
+    # 2. Verify Subject
+    subject = db.query(Subject).filter(Subject.id == payload.subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=400, detail="Invalid Subject ID")
+    
+    # 3. Verify Class
+    cls = db.query(Class).filter(Class.id == payload.class_id).first()
+    if not cls:
+        raise HTTPException(status_code=400, detail="Invalid Class ID")
+    
+    # 4. Check for duplicates
+    existing = db.query(AcademicMapping).filter(
+        AcademicMapping.teacher_id == payload.teacher_id,
+        AcademicMapping.subject_id == payload.subject_id,
+        AcademicMapping.class_id == payload.class_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Mapping already exists")
+
+    new_mapping = AcademicMapping(**payload.model_dump())
+    db.add(new_mapping)
+    db.commit()
+    db.refresh(new_mapping)
+    return new_mapping
+
+
+@router.get("/mappings", response_model=List[AcademicMappingOut])
+def list_mappings(teacher_id: int | None = None, db: Session = Depends(get_db)):
+    """List all mappings, optionally filtered by teacher."""
+    query = db.query(AcademicMapping)
+    if teacher_id:
+        query = query.filter(AcademicMapping.teacher_id == teacher_id)
+    return query.all()

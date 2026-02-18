@@ -5,7 +5,7 @@ models.py — SQLAlchemy ORM models for the School Management System.
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Table
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Table, Date, UniqueConstraint, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -20,12 +20,19 @@ class UserRole(str, enum.Enum):
     parent = "parent"
 
 
+class AttendanceStatus(str, enum.Enum):
+    """Attendance status types."""
+    present = "present"
+    absent = "absent"
+
+
 # Association table must be defined before User to be referenced
 student_parents = Table(
     "student_parents",
     Base.metadata,
     Column("student_id", Integer, ForeignKey("users.id"), primary_key=True),
     Column("parent_id", Integer, ForeignKey("users.id"), primary_key=True),
+    extend_existing=True
 )
 
 
@@ -33,9 +40,10 @@ class Class(Base):
     """Class model (e.g. 10A)."""
     
     __tablename__ = "classes"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(20), unique=True, nullable=False, index=True)  # e.g. "10A"
+    name = Column(String(50), unique=True, nullable=False, index=True)  # e.g. "10A"
     class_level = Column(String(10), nullable=False)  # e.g. "10"
     section = Column(String(5), nullable=False)       # e.g. "A"
     created_at = Column(
@@ -55,12 +63,13 @@ class User(Base):
     """User account model."""
 
     __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String(150), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.student)
+    role = Column(Enum(UserRole, name="user_role_enum"), nullable=False, default=UserRole.student)
     
     # Class Linkage (Students only)
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
@@ -93,3 +102,80 @@ class User(Base):
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r} role={self.role.value}>"
+
+
+class Attendance(Base):
+    """Attendance record model."""
+
+    __tablename__ = "attendance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    status = Column(Enum(AttendanceStatus, name="attendance_status_enum"), nullable=False)
+    marked_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    last_updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        onupdate=func.now(),
+        nullable=True,
+    )
+
+    # Constraints & Indexes
+    __table_args__ = (
+        UniqueConstraint("student_id", "date", name="uq_attendance_student_date"),
+        Index("idx_attendance_class_date", "class_id", "date"),
+        {"extend_existing": True},
+    )
+
+    # Relationships
+    student = relationship("User", foreign_keys=[student_id])
+    teacher = relationship("User", foreign_keys=[marked_by])
+    attendance_class = relationship("Class")
+
+    def __repr__(self) -> str:
+        return f"<Attendance student={self.student_id} date={self.date} status={self.status.value}>"
+
+
+class Subject(Base):
+    """Subject model (e.g. Mathematics, Science)."""
+
+    __tablename__ = "subjects"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    code = Column(String(20), unique=True, nullable=True)  # e.g. "MATH101"
+
+    def __repr__(self) -> str:
+        return f"<Subject {self.name}>"
+
+
+class AcademicMapping(Base):
+    """Teacher-Subject-Class mapping model."""
+
+    __tablename__ = "academic_mappings"
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "subject_id", "class_id", name="uq_teacher_subject_class"),
+        {"extend_existing": True}
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+
+    # Relationships
+    teacher = relationship("User")
+    subject = relationship("Subject")
+    mapping_class = relationship("Class")
+
+    def __repr__(self) -> str:
+        return f"<Mapping Teacher={self.teacher_id} Subject={self.subject_id} Class={self.class_id}>"

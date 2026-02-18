@@ -8,6 +8,14 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  AuthProvider() {
+    // Global handle for 401s
+    _api.onUnauthorized = () {
+      _user = null;
+      notifyListeners();
+    };
+  }
+
   User? get user => _user;
   bool get isLoading => _isLoading;
   String? get error => _error;

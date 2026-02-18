@@ -113,3 +113,96 @@ class TokenData(BaseModel):
     """Data encoded inside the JWT."""
     user_id: int
     role: str
+
+
+# ── Attendance ─────────────────────────────────────────────────────────────────
+
+from models import AttendanceStatus
+from datetime import date
+
+
+class AttendanceBase(BaseModel):
+    student_id: int
+    class_id: int
+    date: date
+    status: AttendanceStatus
+
+
+class AttendanceCreate(AttendanceBase):
+    marked_by: int
+
+
+class AttendanceStudentItem(BaseModel):
+    """Used in bulk request."""
+    student_id: int
+    status: AttendanceStatus
+
+
+class AttendanceBulkRequest(BaseModel):
+    """Request payload for /attendance/bulk."""
+    class_id: int
+    date: date
+    students: List[AttendanceStudentItem]
+
+
+class AttendanceResponse(AttendanceBase):
+    id: int
+    marked_by: int
+    last_updated_by: Optional[int] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AttendanceHistoryResponse(BaseModel):
+    """Response for student/parent attendance history."""
+    history: List[AttendanceResponse]
+    attendance_percentage: float
+    total_days: int
+    days_present: int
+
+
+# ── Subjects & Mappings ────────────────────────────────────────────────────────
+
+class SubjectBase(BaseModel):
+    name: str
+    code: Optional[str] = None
+
+
+class SubjectCreate(SubjectBase):
+    pass
+
+
+class SubjectOut(SubjectBase):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AcademicMappingBase(BaseModel):
+    teacher_id: int
+    subject_id: int
+    class_id: int
+
+
+class AcademicMappingCreate(AcademicMappingBase):
+    pass
+
+
+class AcademicMappingOut(AcademicMappingBase):
+    id: int
+    teacher: UserSummary
+    subject: SubjectOut
+    mapping_class: ClassOut
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ClassAttendanceStats(BaseModel):
+    """Analytics for admin."""
+    class_id: int
+    class_name: str
+    total_students: int
+    total_records: int
+    attendance_percentage: float

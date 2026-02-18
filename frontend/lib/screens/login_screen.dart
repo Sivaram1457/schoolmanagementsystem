@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Card(
               elevation: 8,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              color: Colors.white.withOpacity(0.9), // Glass-ish
+              color: Colors.white.withAlpha(230), // Approx 90% opacity
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Form(

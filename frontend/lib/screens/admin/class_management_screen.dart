@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/class_model.dart';
 import '../../services/api_service.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class ClassManagementScreen extends StatefulWidget {
   const ClassManagementScreen({super.key});
@@ -32,7 +34,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
         );
       }
     }
@@ -42,63 +44,94 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
     final nameCtrl = TextEditingController();
     final levelCtrl = TextEditingController();
     final sectionCtrl = TextEditingController();
+    bool isSaving = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create New Class'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Class Name (e.g. 10A)'),
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Create New Class'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(labelText: 'Class Name (e.g. 10A)'),
+                ),
+                TextField(
+                  controller: levelCtrl,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(labelText: 'Level (e.g. 10)'),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: sectionCtrl,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(labelText: 'Section (e.g. A)'),
+                ),
+              ],
             ),
-            TextField(
-              controller: levelCtrl,
-              decoration: const InputDecoration(labelText: 'Level (e.g. 10)'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: sectionCtrl,
-              decoration: const InputDecoration(labelText: 'Section (e.g. A)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await _api.createClass(
-                  nameCtrl.text,
-                  levelCtrl.text,
-                  sectionCtrl.text,
-                );
-                if (mounted) Navigator.pop(context);
-                _fetchClasses();
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (nameCtrl.text.isEmpty) return;
+                        setDialogState(() => isSaving = true);
+                        try {
+                          await _api.createClass(
+                            nameCtrl.text,
+                            levelCtrl.text,
+                            sectionCtrl.text,
+                          );
+                          if (mounted) Navigator.pop(context);
+                          _fetchClasses();
+                        } catch (e) {
+                          setDialogState(() => isSaving = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
+                            );
+                          }
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Create'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     return Scaffold(
-      appBar: AppBar(title: const Text('Class Management')),
+      appBar: AppBar(
+        title: const Text('Class Management'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => auth.logout().then((_) {
+              Navigator.pushReplacementNamed(context, '/login');
+            }),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _classes.isEmpty

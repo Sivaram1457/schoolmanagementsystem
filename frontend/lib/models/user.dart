@@ -3,18 +3,20 @@ import 'class_model.dart';
 class User {
   final int id;
   final String fullName;
-  final String email;
+  final String? email;
   final String role;
   final int? classId;
   final ClassModel? studentClass;
+  final List<User>? children;
 
   User({
     required this.id,
     required this.fullName,
-    required this.email,
+    this.email,
     required this.role,
     this.classId,
     this.studentClass,
+    this.children,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,9 @@ class User {
       classId: json['class_id'],
       studentClass: json['student_class'] != null
           ? ClassModel.fromJson(json['student_class'])
+          : null,
+      children: json['children'] != null
+          ? (json['children'] as List).map((e) => User.fromJson(e)).toList()
           : null,
     );
   }
