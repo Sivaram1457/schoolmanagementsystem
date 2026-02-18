@@ -5,7 +5,9 @@ Backend for a school management system built with FastAPI and PostgreSQL.
 ## Modules
 
 1. **Authentication**: JWT, RBAC (Admin, Teacher, Student, Parent).
-2. **School Structure**: Classes, Sections, User Management.
+2. **Attendance**: Bulk marking, audit locks, and analytics (Module 2).
+3. **Academic Mapping**: Linking Teachers to Subjects and Classes (Module 3).
+4. **Homework System**: Assignment management with role-based visibility (Module 4).
 
 ## Setup
 
