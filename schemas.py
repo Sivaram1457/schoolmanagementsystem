@@ -199,10 +199,34 @@ class AcademicMappingOut(AcademicMappingBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ClassAttendanceStats(BaseModel):
-    """Analytics for admin."""
-    class_id: int
-    class_name: str
-    total_students: int
     total_records: int
     attendance_percentage: float
+
+
+# ── Homework ──────────────────────────────────────────────────────────────────
+
+class HomeworkBase(BaseModel):
+    title: str
+    description: str
+    due_date: date
+
+
+class HomeworkCreate(HomeworkBase):
+    class_id: int
+
+
+class HomeworkUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+
+
+class HomeworkResponse(HomeworkBase):
+    id: int
+    class_id: int
+    teacher_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_deleted: bool
+
+    model_config = ConfigDict(from_attributes=True)
