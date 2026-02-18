@@ -179,3 +179,40 @@ class AcademicMapping(Base):
 
     def __repr__(self) -> str:
         return f"<Mapping Teacher={self.teacher_id} Subject={self.subject_id} Class={self.class_id}>"
+
+
+class Homework(Base):
+    """Homework model."""
+
+    __tablename__ = "homework"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False, index=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String(150), nullable=False)
+    description = Column(String, nullable=False)  # Using String for Text
+    due_date = Column(Date, nullable=False, index=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        onupdate=func.now(),
+        nullable=True,
+    )
+    is_deleted = Column(Boolean, default=False, nullable=False, index=True)
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_homework_class_due", "class_id", "due_date"),
+        {"extend_existing": True},
+    )
+
+    # Relationships
+    homework_class = relationship("Class")
+    teacher = relationship("User")
+
+    def __repr__(self) -> str:
+        return f"<Homework id={self.id} title={self.title!r}>"
