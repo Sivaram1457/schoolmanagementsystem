@@ -80,6 +80,7 @@ class User(Base):
     class_level = Column(String(50), nullable=True)
 
     is_email_verified = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, server_default="true", index=True)
     
     created_at = Column(
         DateTime(timezone=True),

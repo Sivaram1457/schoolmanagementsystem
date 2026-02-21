@@ -3,9 +3,10 @@ schemas.py — Pydantic models for request/response validation.
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic.generics import GenericModel
 
 from models import UserRole
 
@@ -29,6 +30,16 @@ class ClassOut(ClassBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+T = TypeVar("T")
+
+
+class PaginatedResponse(GenericModel, Generic[T]):
+    items: list[T]
+    total: int
+    page: int
+    limit: int
+
+
 # ── Auth Requests ──────────────────────────────────────────────────────────────
 
 class UserBase(BaseModel):
@@ -42,6 +53,23 @@ class UserCreate(UserBase):
     role: UserRole = UserRole.student
     linked_student_id: Optional[int] = None
     class_id: Optional[int] = None
+
+
+class StudentUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    class_id: Optional[int] = None
+
+
+class TeacherUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+
+class ParentUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    student_ids: Optional[List[int]] = None
 
 
 class StudentCreate(UserBase):
@@ -86,6 +114,7 @@ class UserOut(UserBase):
     """Public representation of a user (no password hash)."""
     id: int
     role: UserRole
+    is_active: bool
     
     # Relationships
     class_id: Optional[int] = None
@@ -136,6 +165,17 @@ class VerifyEmailRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     detail: str
+
+
+class BulkUploadError(BaseModel):
+    row: int
+    error: str
+
+
+class StudentBulkUploadResponse(BaseModel):
+    created: int
+    failed: int
+    errors: List[BulkUploadError]
 
 
 # ── Attendance ─────────────────────────────────────────────────────────────────

@@ -112,6 +112,12 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             detail="Please verify your email before logging in",
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is deactivated",
+        )
+
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
     refresh_token, expires_at = create_refresh_token()
     token_hash = hash_token(refresh_token)
