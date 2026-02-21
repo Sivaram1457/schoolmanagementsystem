@@ -132,36 +132,49 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
     token_hash = hash_token(payload.refresh_token)
     now = datetime.now(timezone.utc)
-    stored = db.query(RefreshToken).filter(
-        RefreshToken.token_hash == token_hash,
-        RefreshToken.is_revoked == False,
-        RefreshToken.expires_at > now,
-    ).first()
+    new_access_token: str | None = None
+    new_refresh_token: str | None = None
 
-    if not stored:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+    with db.begin():
+        stored = (
+            db.query(RefreshToken)
+            .filter(
+                RefreshToken.token_hash == token_hash,
+            )
+            .with_for_update()
+            .first()
         )
 
-    stored.is_revoked = True
-    db.commit()
+        if not stored or stored.is_revoked or stored.expires_at <= now:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token",
+            )
 
-    user = db.query(User).filter(User.id == stored.user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+        stored.is_revoked = True
+
+        user = db.query(User).filter(User.id == stored.user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+
+        new_access_token = create_access_token(
+            data={"sub": str(user.id), "role": user.role.value}
+        )
+        new_refresh_token, expires_at = create_refresh_token()
+        new_hash = hash_token(new_refresh_token)
+
+        db.add(
+            RefreshToken(
+                user_id=user.id,
+                token_hash=new_hash,
+                expires_at=expires_at,
+            )
         )
 
-    access_token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
-    new_refresh_token, expires_at = create_refresh_token()
-    new_hash = hash_token(new_refresh_token)
-
-    db.add(RefreshToken(user_id=user.id, token_hash=new_hash, expires_at=expires_at))
-    db.commit()
-
-    return Token(access_token=access_token, refresh_token=new_refresh_token)
+    return Token(access_token=new_access_token, refresh_token=new_refresh_token)
 
 
 # ── POST /auth/logout ─────────────────────────────────────────────────────────
