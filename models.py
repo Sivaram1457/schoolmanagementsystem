@@ -78,6 +78,8 @@ class User(Base):
     linked_student_id = Column(Integer, nullable=True) # DEPRECATED: Use students/parents relationship
     
     class_level = Column(String(50), nullable=True)
+
+    is_email_verified = Column(Boolean, default=False, nullable=False)
     
     created_at = Column(
         DateTime(timezone=True),
@@ -216,3 +218,117 @@ class Homework(Base):
 
     def __repr__(self) -> str:
         return f"<Homework id={self.id} title={self.title!r}>"
+
+
+class RefreshToken(Base):
+    """Refresh token record used for rotating refresh tokens."""
+
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_refresh_tokens_hash"),
+        Index("ix_refresh_tokens_user_id", "user_id"),
+        {"extend_existing": True},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String(255), nullable=False, unique=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    is_revoked = Column(Boolean, default=False, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<RefreshToken user={self.user_id} revoked={self.is_revoked} expires={self.expires_at}>"
+
+
+class PasswordResetToken(Base):
+    """Single-use token for resetting passwords."""
+
+    __tablename__ = "password_reset_tokens"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_password_reset_hash"),
+        Index("ix_password_reset_user_id", "user_id"),
+        Index("ix_password_reset_expires", "expires_at"),
+        {"extend_existing": True},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String(255), nullable=False, unique=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    is_used = Column(Boolean, default=False, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<PasswordResetToken user={self.user_id} used={self.is_used} expires={self.expires_at}>"
+
+
+class EmailVerificationToken(Base):
+    """Token supporting email verification process."""
+
+    __tablename__ = "email_verification_tokens"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_email_verification_hash"),
+        Index("ix_email_verification_user_id", "user_id"),
+        Index("ix_email_verification_expires", "expires_at"),
+        {"extend_existing": True},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String(255), nullable=False, unique=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    is_used = Column(Boolean, default=False, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<EmailVerificationToken user={self.user_id} used={self.is_used} expires={self.expires_at}>"
+
+
+class HomeworkSubmission(Base):
+    """Homework submission/completion record by a student."""
+
+    __tablename__ = "homework_submissions"
+    __table_args__ = (
+        UniqueConstraint("homework_id", "student_id", name="uq_homework_student"),
+        {"extend_existing": True},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    homework_id = Column(Integer, ForeignKey("homework.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    is_completed = Column(Boolean, default=True, nullable=False)
+    completed_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        onupdate=func.now(),
+        nullable=True,
+    )
+
+    # Relationships
+    student = relationship("User")
+    homework = relationship("Homework", backref="submissions")
+
+    def __repr__(self) -> str:
+        return f"<HomeworkSubmission hw={self.homework_id} student={self.student_id} completed={self.is_completed}>"

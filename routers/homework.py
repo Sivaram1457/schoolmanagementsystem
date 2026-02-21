@@ -2,18 +2,19 @@
 routers/homework.py — Homework management endpoints.
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 
 from auth import require_role
 from database import get_db
-from models import Homework, User, UserRole, Class, AcademicMapping
+from models import Homework, User, UserRole, Class, AcademicMapping, HomeworkSubmission
 from schemas import (
-    HomeworkCreate, HomeworkUpdate, HomeworkResponse
+    HomeworkCreate, HomeworkUpdate, HomeworkResponse, HomeworkResponseWithCompletion,
+    HomeworkCompletionOut, SubmissionOut
 )
 
 router = APIRouter(prefix="/homework", tags=["Homework"])
@@ -156,7 +157,7 @@ def delete_homework(
 
 @router.get(
     "/me",
-    response_model=List[HomeworkResponse],
+    response_model=List[HomeworkResponseWithCompletion],
     summary="Get my class homework (Students only)",
 )
 def get_my_homework(
@@ -170,15 +171,25 @@ def get_my_homework(
             detail="Student is not assigned to any class",
         )
 
-    return db.query(Homework).filter(
+    homeworks = db.query(Homework).filter(
         Homework.class_id == current_user.class_id,
         Homework.is_deleted == False
     ).order_by(Homework.due_date.asc()).all()
 
+    # Annotate each homework with 'completed' flag for this student
+    for hw in homeworks:
+        sub = db.query(HomeworkSubmission).filter(
+            HomeworkSubmission.homework_id == hw.id,
+            HomeworkSubmission.student_id == current_user.id
+        ).first()
+        setattr(hw, "completed", bool(sub))
+
+    return homeworks
+
 
 @router.get(
     "/student/{student_id}",
-    response_model=List[HomeworkResponse],
+    response_model=List[HomeworkResponseWithCompletion],
     summary="Get child's class homework (Parents only)",
 )
 def get_child_homework(
@@ -202,10 +213,96 @@ def get_child_homework(
             detail="Student has no class assigned",
         )
 
-    return db.query(Homework).filter(
+    homeworks = db.query(Homework).filter(
         Homework.class_id == student.class_id,
         Homework.is_deleted == False
     ).order_by(Homework.due_date.asc()).all()
+
+    for hw in homeworks:
+        sub = db.query(HomeworkSubmission).filter(
+            HomeworkSubmission.homework_id == hw.id,
+            HomeworkSubmission.student_id == student_id
+        ).first()
+        setattr(hw, "completed", bool(sub))
+
+    return homeworks
+
+
+# ── Student: Mark Homework Completed ─────────────────────────────────────────
+
+
+@router.post(
+    "/{homework_id}/complete",
+    response_model=HomeworkCompletionOut,
+    summary="Mark homework as completed (Students only)",
+)
+def complete_homework(
+    homework_id: int,
+    current_user: User = Depends(require_role(["student"])),
+    db: Session = Depends(get_db),
+):
+    hw = db.query(Homework).filter(Homework.id == homework_id, Homework.is_deleted == False).first()
+    if not hw:
+        raise HTTPException(status_code=404, detail="Homework not found")
+
+    # Student must belong to the class
+    if current_user.class_id != hw.class_id:
+        raise HTTPException(status_code=403, detail="You are not a student of this class")
+
+    existing = db.query(HomeworkSubmission).filter(
+        HomeworkSubmission.homework_id == homework_id,
+        HomeworkSubmission.student_id == current_user.id
+    ).with_for_update().first()
+
+    if existing:
+        existing.is_completed = True
+        existing.completed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    sub = HomeworkSubmission(homework_id=homework_id, student_id=current_user.id, is_completed=True)
+    db.add(sub)
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+# ── Teacher/Admin: View Submissions ──────────────────────────────────────────
+
+
+@router.get(
+    "/{homework_id}/submissions",
+    response_model=List[SubmissionOut],
+    summary="List submissions for a homework (Teacher/Admin)",
+)
+def list_homework_submissions(
+    homework_id: int,
+    current_user: User = Depends(require_role(["teacher", "admin"])),
+    db: Session = Depends(get_db),
+):
+    hw = db.query(Homework).filter(Homework.id == homework_id).first()
+    if not hw:
+        raise HTTPException(status_code=404, detail="Homework not found")
+
+    # Teacher must be the owner (admin bypasses)
+    if current_user.role != UserRole.admin and hw.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to view submissions for this homework")
+
+    subs = db.query(HomeworkSubmission).filter(HomeworkSubmission.homework_id == homework_id).all()
+    return subs
+
+
+@router.get(
+    "/my",
+    response_model=List[HomeworkResponse],
+    summary="Get my created homework (Teachers)",
+)
+def get_my_created_homework(
+    current_user: User = Depends(require_role(["teacher"])),
+    db: Session = Depends(get_db),
+):
+    return db.query(Homework).filter(Homework.teacher_id == current_user.id, Homework.is_deleted == False).order_by(Homework.due_date.asc()).all()
 
 
 @router.get(

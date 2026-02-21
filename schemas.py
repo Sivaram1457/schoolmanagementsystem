@@ -106,6 +106,7 @@ class UserOut(UserBase):
 class Token(BaseModel):
     """JWT token response."""
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 
@@ -113,6 +114,28 @@ class TokenData(BaseModel):
     """Data encoded inside the JWT."""
     user_id: int
     role: str
+
+
+class RefreshRequest(BaseModel):
+    """Payload for refresh and logout endpoints."""
+    refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class MessageResponse(BaseModel):
+    detail: str
 
 
 # ── Attendance ─────────────────────────────────────────────────────────────────
@@ -228,5 +251,31 @@ class HomeworkResponse(HomeworkBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     is_deleted: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkResponseWithCompletion(HomeworkResponse):
+    """Homework response with per-student completion flag."""
+    completed: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkCompletionOut(BaseModel):
+    homework_id: int
+    student_id: int
+    is_completed: bool
+    completed_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SubmissionOut(BaseModel):
+    id: int
+    homework_id: int
+    student: UserSummary
+    is_completed: bool
+    completed_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -2,7 +2,9 @@
 auth.py — Password hashing, JWT creation/verification, and FastAPI security dependencies.
 """
 
+import hashlib
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import List
 
@@ -14,7 +16,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User
+from models import RefreshToken, User
 
 load_dotenv()
 
@@ -22,7 +24,11 @@ load_dotenv()
 
 SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
+PASSWORD_RESET_TOKEN_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_MINUTES", "15"))
+EMAIL_VERIFICATION_TOKEN_HOURS = int(os.getenv("EMAIL_VERIFICATION_TOKEN_HOURS", "24"))
+ENFORCE_EMAIL_VERIFICATION = os.getenv("ENFORCE_EMAIL_VERIFICATION", "false").lower() in ("1", "true", "yes")
 
 # ── Password Hashing ──────────────────────────────────────────────────────────
 
@@ -47,6 +53,44 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_refresh_token() -> tuple[str, datetime]:
+    """Generate a cryptographically strong refresh token and expiration."""
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    return token, expires_at
+
+
+def create_timed_token(minutes: int) -> tuple[str, datetime]:
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+    return token, expires_at
+
+
+def create_email_verification_token() -> tuple[str, datetime]:
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFICATION_TOKEN_HOURS)
+    return token, expires_at
+
+
+def hash_token(token: str) -> str:
+    """Return the SHA-256 digest of the token."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def validate_password_strength(password: str) -> None:
+    if len(password) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be at least 8 characters long")
+    if password.islower() or password.isupper():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must include both uppercase and lowercase characters")
+    if not any(char.isdigit() for char in password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must include at least one digit")
+
+
+def invalidate_user_refresh_tokens(user_id: int, db: Session) -> None:
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id, RefreshToken.is_revoked == False).update({"is_revoked": True})
+    db.commit()
 
 
 # ── FastAPI Security Dependencies ─────────────────────────────────────────────

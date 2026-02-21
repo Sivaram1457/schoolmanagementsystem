@@ -4,10 +4,14 @@ main.py — FastAPI application entry point for the School Management System.
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from database import Base, engine
+from rate_limit import limiter
 from routers import auth as auth_router, admin as admin_router, attendance as attendance_router, homework as homework_router
 
 
@@ -24,6 +28,18 @@ app = FastAPI(
     version="1.1.0",
     lifespan=lifespan,
 )
+
+# ── Rate Limiting ─────────────────────────────────────────────────────────────
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"detail": "Too many login attempts. Try again later."},
+    )
 
 # ── CORS Configuration ────────────────────────────────────────────────────────
 app.add_middleware(

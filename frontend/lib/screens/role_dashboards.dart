@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'attendance/attendance_marking_screen.dart';
 import 'attendance/attendance_history_screen.dart';
+import 'homework/student_homework_screen.dart';
+import 'homework/teacher_homework_screen.dart';
 
 class TeacherDashboardScreen extends StatelessWidget {
   const TeacherDashboardScreen({super.key});
@@ -30,6 +32,16 @@ class TeacherDashboardScreen extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context, 
                 MaterialPageRoute(builder: (_) => const TeacherAttendanceScreen())
+              ),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.home_work),
+              label: const Text('Homework Management'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TeacherHomeworkScreen()),
               ),
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
             ),
@@ -66,6 +78,16 @@ class StudentDashboardScreen extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context, 
                 MaterialPageRoute(builder: (_) => const AttendanceHistoryScreen())
+              ),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.assignment),
+              label: const Text('My Homework'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StudentHomeworkScreen()),
               ),
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
             ),
