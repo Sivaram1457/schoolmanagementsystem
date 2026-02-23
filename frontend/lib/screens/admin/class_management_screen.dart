@@ -139,24 +139,68 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _classes.length,
-                  itemBuilder: (context, index) {
+                    itemBuilder: (context, index) {
                     final cls = _classes[index];
                     return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          child: Text(cls.classLevel),
+                      elevation: 4,
+                      shadowColor: Colors.black26,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          // TODO: Navigate to class details
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: ListTile(
+                            leading: Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  cls.classLevel,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              'Class ${cls.name}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                'Level: ${cls.classLevel}  •  Section: ${cls.section}',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ),
+                            trailing: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                            ),
+                          ),
                         ),
-                        title: Text('Class ${cls.name}'),
-                        subtitle: Text('Level: ${cls.classLevel} | Section: ${cls.section}'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       ),
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddClassDialog,
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('New Class'),
       ),
     );
   }
