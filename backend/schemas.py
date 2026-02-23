@@ -5,7 +5,7 @@ schemas.py — Pydantic models for request/response validation.
 from datetime import datetime
 from typing import Generic, List, Optional, TypeVar
 
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from pydantic.generics import GenericModel
 
 from backend.models import UserRole
@@ -14,18 +14,21 @@ from backend.models import UserRole
 # ── Linkages ───────────────────────────────────────────────────────────────────
 
 class ClassBase(BaseModel):
-    name: str
-    class_level: str
-    section: str
+    """Base schema for Class information."""
+    name: str = Field(..., description="The name of the class, e.g., '10A'")
+    class_level: str = Field(..., description="The academic level, e.g., '10'")
+    section: str = Field(..., description="The section identifier, e.g., 'A'")
 
 
 class ClassCreate(ClassBase):
+    """Schema for creating a new Class."""
     pass
 
 
 class ClassOut(ClassBase):
-    id: int
-    created_at: datetime
+    """Response schema for Class information."""
+    id: int = Field(..., description="Unique identifier for the class")
+    created_at: datetime = Field(..., description="Timestamp when the class was created")
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,109 +37,114 @@ T = TypeVar("T")
 
 
 class PaginatedResponse(GenericModel, Generic[T]):
-    items: list[T]
-    total: int
-    page: int
-    limit: int
+    """Standard paginated response wrapper."""
+    items: list[T] = Field(..., description="List of items for the current page")
+    total: int = Field(..., description="Total number of items available")
+    page: int = Field(..., description="Current page number")
+    limit: int = Field(..., description="Number of items per page")
 
 
 # ── Auth Requests ──────────────────────────────────────────────────────────────
 
 class UserBase(BaseModel):
-    full_name: str
-    email: EmailStr
+    """Base schema for User profile information."""
+    full_name: str = Field(..., description="Full name of the user")
+    email: EmailStr = Field(..., description="Unique email address for the user")
 
 
 class UserCreate(UserBase):
     """Generic payload - used by admin or initial registration."""
-    password: str
-    role: UserRole = UserRole.student
-    linked_student_id: Optional[int] = None
-    class_id: Optional[int] = None
+    password: str = Field(..., description="Cleartext password for the user")
+    role: UserRole = Field(UserRole.student, description="Assigned role for the user")
+    linked_student_id: Optional[int] = Field(None, description="Optional ID of a linked student (for parents)")
+    class_id: Optional[int] = Field(None, description="Optional ID of the assigned class")
 
 
 class StudentUpdate(BaseModel):
-    full_name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    class_id: Optional[int] = None
+    """Schema for updating Student specific information."""
+    full_name: Optional[str] = Field(None, description="Updated full name")
+    email: Optional[EmailStr] = Field(None, description="Updated email address")
+    class_id: Optional[int] = Field(None, description="Updated class assignment")
 
 
 class TeacherUpdate(BaseModel):
-    full_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    """Schema for updating Teacher specific information."""
+    full_name: Optional[str] = Field(None, description="Updated full name")
+    email: Optional[EmailStr] = Field(None, description="Updated email address")
 
 
 class ParentUpdate(BaseModel):
-    full_name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    student_ids: Optional[List[int]] = None
+    """Schema for updating Parent specific information."""
+    full_name: Optional[str] = Field(None, description="Updated full name")
+    email: Optional[EmailStr] = Field(None, description="Updated email address")
+    student_ids: Optional[List[int]] = Field(None, description="Updated list of linked student IDs")
 
 
 class StudentCreate(UserBase):
     """Specific payload for creating a Student."""
-    password: str
-    class_id: int  # Required for students
-    role: UserRole = UserRole.student
+    password: str = Field(..., description="Cleartext password")
+    class_id: int = Field(..., description="Required class ID for the student")
+    role: UserRole = Field(UserRole.student, description="Role is fixed to student")
 
 
 class TeacherCreate(UserBase):
     """Specific payload for creating a Teacher."""
-    password: str
-    role: UserRole = UserRole.teacher
+    password: str = Field(..., description="Cleartext password")
+    role: UserRole = Field(UserRole.teacher, description="Role is fixed to teacher")
 
 
 class ParentCreate(UserBase):
     """Specific payload for creating a Parent."""
-    password: str
-    student_ids: List[int]  # Required for parents: list of student IDs
-    role: UserRole = UserRole.parent
+    password: str = Field(..., description="Cleartext password")
+    student_ids: List[int] = Field(..., description="Required list of student IDs for the parent")
+    role: UserRole = Field(UserRole.parent, description="Role is fixed to parent")
 
 
 class LoginRequest(BaseModel):
     """Payload for the login endpoint."""
-    email: EmailStr
-    password: str
+    email: EmailStr = Field(..., description="User's email address")
+    password: str = Field(..., description="User's cleartext password")
 
 
 # ── Auth Responses ─────────────────────────────────────────────────────────────
 
 class UserSummary(BaseModel):
     """Minimal user info to prevent recursion."""
-    id: int
-    full_name: str
-    class_id: Optional[int] = None
-    role: UserRole
+    id: int = Field(..., description="Unique identifier")
+    full_name: str = Field(..., description="User's full name")
+    class_id: Optional[int] = Field(None, description="Class ID if applicable")
+    role: UserRole = Field(..., description="User's role")
     
     model_config = ConfigDict(from_attributes=True)
 
 
 class UserOut(UserBase):
     """Public representation of a user (no password hash)."""
-    id: int
-    role: UserRole
-    is_active: bool
+    id: int = Field(..., description="Unique identifier")
+    role: UserRole = Field(..., description="Assigned role")
+    is_active: bool = Field(..., description="Account activation status")
     
     # Relationships
-    class_id: Optional[int] = None
-    student_class: Optional[ClassOut] = None  # Nested class info
+    class_id: Optional[int] = Field(None, description="Assigned class ID")
+    student_class: Optional[ClassOut] = Field(None, description="Nested class details")
     
     # M2M Relationships
-    children: List[UserSummary] = []  # For parents
-    parents: List[UserSummary] = []   # For students
+    children: List[UserSummary] = Field([], description="List of children for parent users")
+    parents: List[UserSummary] = Field([], description="List of parents for student users")
     
     # Legacy field
-    linked_student_id: Optional[int] = None
+    linked_student_id: Optional[int] = Field(None, description="Legacy link field")
     
-    created_at: datetime
+    created_at: datetime = Field(..., description="Time of registration")
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
     """JWT token response."""
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
+    access_token: str = Field(..., description="Access token for authentication")
+    refresh_token: str = Field(..., description="Token used to obtain a new access token")
+    token_type: str = Field("bearer", description="Token category")
 
 
 class TokenData(BaseModel):
