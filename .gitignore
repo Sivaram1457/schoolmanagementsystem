@@ -1,11 +1,10 @@
+.venv/
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
 .env
-.venv
-env/
-venv/
-.idea/
+.DS_Store
+
+# IDEs
 .vscode/
 *.log
 frontend/.dart_tool/
