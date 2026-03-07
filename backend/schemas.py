@@ -2,7 +2,7 @@
 schemas.py — Pydantic models for request/response validation.
 """
 
-from datetime import datetime
+from datetime import datetime, date as DateType
 from typing import Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
@@ -281,10 +281,6 @@ class AcademicMappingOut(AcademicMappingBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-    total_records: int
-    attendance_percentage: float
-
-
 # ── Homework ──────────────────────────────────────────────────────────────────
 
 class HomeworkBase(BaseModel):
@@ -338,3 +334,274 @@ class SubmissionOut(BaseModel):
     completed_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 1: Timetable Engine ─────────────────────────────────────────────────
+
+class PeriodCreate(BaseModel):
+    """Payload for creating a school period."""
+    period_number: int = Field(..., ge=1, description="Ordinal number of this period in the school day")
+    start_time: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="Start time in HH:MM format")
+    end_time: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="End time in HH:MM format")
+
+
+class PeriodOut(PeriodCreate):
+    """Response schema for a Period."""
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RoomCreate(BaseModel):
+    """Payload for creating a classroom / lab."""
+    room_name: str = Field(..., max_length=100, description="Unique room identifier, e.g. 'Room 101'")
+    capacity: Optional[int] = Field(None, ge=1, description="Maximum student capacity")
+
+
+class RoomOut(RoomCreate):
+    """Response schema for a Room."""
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TimetableSlotCreate(BaseModel):
+    """Payload for creating a timetable slot."""
+    class_id: int = Field(..., description="ID of the class being taught")
+    subject_id: int = Field(..., description="ID of the subject")
+    teacher_id: int = Field(..., description="ID of the teacher (must have role=teacher)")
+    room_id: int = Field(..., description="ID of the room")
+    day_of_week: int = Field(..., ge=0, le=6, description="Day: 0=Monday … 6=Sunday")
+    period_id: int = Field(..., description="ID of the school period")
+
+
+class TimetableSlotUpdate(BaseModel):
+    """Payload for updating a timetable slot (all fields optional)."""
+    class_id: Optional[int] = None
+    subject_id: Optional[int] = None
+    teacher_id: Optional[int] = None
+    room_id: Optional[int] = None
+    day_of_week: Optional[int] = Field(None, ge=0, le=6)
+    period_id: Optional[int] = None
+
+
+class TimetableSlotOut(BaseModel):
+    """Rich response for a timetable slot including nested details."""
+    id: int
+    day_of_week: int
+    slot_class: ClassOut
+    subject: SubjectOut
+    teacher: UserSummary
+    room: RoomOut
+    period: PeriodOut
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 1: Event Management System ─────────────────────────────────────────
+
+from backend.models import EventRegistrationStatus
+
+
+class EventCreate(BaseModel):
+    """Payload for creating an event."""
+    title: str = Field(..., max_length=200, description="Event title")
+    description: Optional[str] = Field(None, description="Optional event description")
+    event_date: date = Field(..., description="Date the event takes place")
+    class_id: Optional[int] = Field(None, description="Restrict event to a specific class; NULL = school-wide")
+
+
+class EventUpdate(BaseModel):
+    """Payload for updating an event (all fields optional)."""
+    title: Optional[str] = Field(None, max_length=200)
+    description: Optional[str] = None
+    event_date: Optional[date] = None
+    class_id: Optional[int] = None
+
+
+class EventOut(BaseModel):
+    """Response schema for an Event."""
+    id: int
+    title: str
+    description: Optional[str] = None
+    event_date: date
+    class_id: Optional[int] = None
+    event_class: Optional[ClassOut] = None
+    created_by: int
+    creator: UserSummary
+    is_deleted: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EventRegistrationCreate(BaseModel):
+    """Payload for registering a student to an event (student registers themselves)."""
+    pass  # event_id comes from path param; student_id from JWT
+
+
+class EventRegistrationOut(BaseModel):
+    """Response schema for an EventRegistration."""
+    id: int
+    event_id: int
+    student: UserSummary
+    status: EventRegistrationStatus
+    registered_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EventRegistrationStatusUpdate(BaseModel):
+    """Payload for teacher/admin to update a participant's status."""
+    status: EventRegistrationStatus = Field(..., description="New status: registered | attended | winner")
+
+
+# ── Phase 2: File Upload ───────────────────────────────────────────────────────
+
+class FileUploadResponse(BaseModel):
+    """Response after a successful file upload."""
+    file_url: str = Field(..., description="Relative URL to access the uploaded file")
+
+
+# ── Phase 2: Certificate Generator ────────────────────────────────────────────
+
+from backend.models import AnnouncementTargetRole  # noqa: E402
+
+
+class CertificateOut(BaseModel):
+    """Response schema for a generated Certificate."""
+    id: int
+    student_id: int
+    event_id: int
+    file_url: str
+    generated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CertificateGenerateResponse(BaseModel):
+    """Response after bulk certificate generation."""
+    event_id: int
+    generated: int
+    skipped: int
+    certificates: List[CertificateOut]
+
+
+# ── Phase 2: Announcement System ──────────────────────────────────────────────
+
+class AnnouncementCreate(BaseModel):
+    title: str = Field(..., max_length=200)
+    message: str = Field(..., min_length=1)
+    target_role: AnnouncementTargetRole = Field(AnnouncementTargetRole.all)
+
+
+class AnnouncementOut(BaseModel):
+    id: int
+    title: str
+    message: str
+    target_role: AnnouncementTargetRole
+    created_by: int
+    created_at: datetime
+    author: UserSummary
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 2: Notification Storage ─────────────────────────────────────────────
+
+class NotificationOut(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    message: str
+    is_read: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NotificationCreate(BaseModel):
+    """Internal use: create a notification for a specific user."""
+    user_id: int
+    title: str = Field(..., max_length=200)
+    message: str = Field(..., min_length=1)
+
+
+# ── Phase 3: Academic Calendar ─────────────────────────────────────────────────
+
+from backend.models import CalendarEntryType  # noqa: E402
+
+
+class CalendarEntryCreate(BaseModel):
+    """Request body for creating an academic calendar entry."""
+    date: DateType
+    type: CalendarEntryType
+    description: str = Field("", max_length=300)
+
+
+class CalendarEntryOut(BaseModel):
+    """Response schema for an academic calendar entry."""
+    id: int
+    date: DateType
+    type: CalendarEntryType
+    description: str
+    created_by: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 3: Analytics ─────────────────────────────────────────────────────────
+
+class StudentAnalytics(BaseModel):
+    """Analytics summary for a single student."""
+    student_id: int
+    student_name: str
+    class_id: Optional[int]
+    class_name: Optional[str]
+    total_school_days: int
+    holidays_excluded: int
+    days_present: int
+    days_absent: int
+    attendance_pct: float
+    total_homework: int
+    homework_submitted: int
+    homework_completion_pct: float
+
+
+class HomeworkAnalyticsItem(BaseModel):
+    """Per-homework completion stats for a class."""
+    homework_id: int
+    title: str
+    due_date: DateType
+    total_students: int
+    submitted: int
+    completion_pct: float
+
+
+class ClassAnalytics(BaseModel):
+    """Aggregate analytics for an entire class."""
+    class_id: int
+    class_name: str
+    total_students: int
+    avg_attendance_pct: float
+    avg_homework_completion_pct: float
+
+
+class AttendanceTrendPoint(BaseModel):
+    """One data point in an attendance trend series (per week or per day)."""
+    period_label: str    # e.g. "2026-W10" or "2026-03-07"
+    school_days: int
+    present_count: int   # total present marks for the class that period
+    attendance_pct: float
+
+
+class AttendanceTrend(BaseModel):
+    """Attendance trend for a class over the queried range."""
+    class_id: int
+    class_name: str
+    trend: List[AttendanceTrendPoint]

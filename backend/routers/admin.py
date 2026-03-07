@@ -10,12 +10,13 @@ from typing import List
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import EmailStr, ValidationError
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from auth import hash_password, require_role
-from database import get_db
-from models import AcademicMapping, Class, Subject, User, UserRole
-from schemas import (
+from backend.auth import hash_password, require_role
+from backend.database import get_db
+from backend.models import AcademicMapping, Class, Subject, User, UserRole
+from backend.schemas import (
     AcademicMappingCreate,
     AcademicMappingOut,
     BulkUploadError,
@@ -404,7 +405,14 @@ def bulk_upload_students(file: UploadFile = File(...), db: Session = Depends(get
         existing_emails.add(email_key)
 
     if created:
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Bulk upload failed due to duplicate or constraint violation.",
+            )
     else:
         db.rollback()
 

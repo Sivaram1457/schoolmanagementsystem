@@ -15,8 +15,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import RefreshToken, User
+from backend.database import get_db
+from backend.models import RefreshToken, User
 
 load_dotenv()
 

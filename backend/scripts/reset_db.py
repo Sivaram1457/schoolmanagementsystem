@@ -3,8 +3,8 @@ reset_db.py — DANGER: Drops all tables and recreates them with the new schema.
 Use this when you've modified models.py and need to apply changes in a dev environment.
 """
 
-from database import Base, engine
-from models import User, Class  # Import all models to ensure they are registered
+from backend.database import Base, engine
+from backend.models import User, Class  # Import all models to ensure they are registered
 
 import sys
 

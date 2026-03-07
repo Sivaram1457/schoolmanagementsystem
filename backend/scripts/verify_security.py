@@ -7,8 +7,9 @@ import requests
 import sys
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
-from models import User
-from database import Base, engine
+from backend.models import User
+from backend.database import Base, engine
+from backend.auth import SECRET_KEY
 
 # 1. Check Passwords in DB are Hashed
 def check_db_hashing():
@@ -31,8 +32,6 @@ def check_db_hashing():
 # 2. Check Secret Key Source
 def check_secret_key():
     print("\n2. Checking SECRET_KEY Source...")
-    from auth import SECRET_KEY
-    
     # Read .env manually
     env_keys = {}
     with open(".env", "r") as f:

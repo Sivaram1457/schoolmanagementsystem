@@ -5,9 +5,9 @@ Usage:
     python seed_admin.py
 """
 
-from database import SessionLocal, engine, Base
-from models import User, UserRole
-from auth import hash_password
+from backend.database import SessionLocal, engine, Base
+from backend.models import User, UserRole
+from backend.auth import hash_password
 
 # Ensure tables exist
 Base.metadata.create_all(bind=engine)

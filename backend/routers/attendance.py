@@ -9,10 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from auth import get_current_user, require_role
-from database import get_db
-from models import Attendance, User, UserRole, AttendanceStatus, Class, AcademicMapping
-from schemas import (
+from backend.auth import get_current_user, require_role
+from backend.database import get_db
+from backend.models import Attendance, User, UserRole, AttendanceStatus, Class, AcademicMapping
+from backend.schemas import (
     AttendanceBulkRequest, AttendanceResponse, AttendanceHistoryResponse, 
     ClassAttendanceStats
 )

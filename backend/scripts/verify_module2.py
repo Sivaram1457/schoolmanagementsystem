@@ -3,9 +3,9 @@ verify_module2.py — Automated verification for Module 2: Admin & School Struct
 """
 import requests
 import sys
-from database import Base, engine, SessionLocal
-from models import User, UserRole
-from auth import hash_password
+from backend.database import Base, engine, SessionLocal
+from backend.models import User, UserRole
+from backend.auth import hash_password
 
 BASE = "http://127.0.0.1:8000"
 

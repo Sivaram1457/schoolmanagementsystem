@@ -2,10 +2,10 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
-from auth import (
+from backend.auth import (
     ENFORCE_EMAIL_VERIFICATION,
     PASSWORD_RESET_TOKEN_MINUTES,
     create_access_token,
@@ -20,10 +20,10 @@ from auth import (
     validate_password_strength,
     verify_password,
 )
-from database import get_db
-from models import EmailVerificationToken, PasswordResetToken, RefreshToken, User
-from rate_limit import limiter
-from schemas import (
+from backend.database import get_db
+from backend.models import EmailVerificationToken, PasswordResetToken, RefreshToken, User
+from backend.rate_limit import limiter
+from backend.schemas import (
     ForgotPasswordRequest,
     LoginRequest,
     MessageResponse,
@@ -95,7 +95,7 @@ def register(
     summary="Authenticate and receive a JWT access token",
 )
 @limiter.limit("5/minute")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
     """Validate credentials and return a JWT access token."""
 
     user = db.query(User).filter(User.email == payload.email).first()
@@ -164,6 +164,12 @@ def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account disabled",
             )
 
         new_access_token = create_access_token(

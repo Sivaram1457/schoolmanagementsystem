@@ -9,10 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
-from auth import require_role
-from database import get_db
-from models import Homework, User, UserRole, Class, AcademicMapping, HomeworkSubmission
-from schemas import (
+from backend.auth import require_role
+from backend.database import get_db
+from backend.models import Homework, User, UserRole, Class, AcademicMapping, HomeworkSubmission
+from backend.schemas import (
     HomeworkCreate, HomeworkUpdate, HomeworkResponse, HomeworkResponseWithCompletion,
     HomeworkCompletionOut, SubmissionOut
 )
